@@ -19,6 +19,12 @@ sudo passwd root
 (su -)
 sudo apt-get update -y
 ```
+## Pyhton 3 by default
+```
+sudo update-alternatives --install /usr/bin/python python  /usr/bin/python3 1
+python --version
+```
+
 ## Install dependencies
 libssl-dev is the openssl dev library (need it for cmake)
 ```
