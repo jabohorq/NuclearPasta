@@ -1,0 +1,95 @@
+# Nuclear pasta script
+
+units		metal
+dimension	3
+atom_style      atomic
+boundary        p p p
+
+neighbor 	0.3e-5 bin
+neigh_modify	delay 5
+# sc --> cutoff*0.3 = 2e-4 * 0.3 = 6e-5
+# 4913 particles density 0.05
+# lattice constant Npar/part_per_length
+lattice		sc 2.7e-5
+# part_per_lenght
+region          simbox block 0 17 0 17 0 17
+create_box      2 simbox
+create_atoms	1 region simbox
+# set last two values proton_frac=0.4 random_seed
+set		type 1 type/fraction 2 0.4 9876
+# Atoms ID 1: neutrons
+# Atoms ID 2: protons
+mass		1 1.00137
+mass		2 1.0
+
+# Potential
+pair_style      hybrid/overlay gauss 2e-4 gauss 2e-4 yukawa 10e3 2e-4
+
+# Pair coefficients for neutron-neutron interaction
+pair_coeff      1 1 gauss 1 -110e6 8e9
+pair_coeff      1 1 gauss 2 2e6 4e9
+pair_coeff      1 1 yukawa 0.0
+# Pair coefficients for neutron-proton interaction
+pair_coeff      1 2 gauss 1 -110e6 8e9
+pair_coeff      1 2 gauss 2 50e6 4e9
+pair_coeff      1 2 yukawa 0.0
+# Pair coefficients for proton-proton interaction
+pair_coeff      2 2 gauss 1 -110e6 8e9
+pair_coeff      2 2 gauss 2 2e6 4e9
+pair_coeff      2 2 yukawa 14.399
+
+# Initial velocities
+# velocity      all create temperature random_seed
+velocity all create 3.0e10 6789
+velocity all zero linear
+##
+# thermo info
+thermo		1000
+thermo_style	custom step time etotal ke pe temp
+## thermostat temp temperature 1.16e10K = 1 MeV
+#fix 		1 all nvt temp 2.0e10 1.16e10 $(100.0*dt)
+fix 		1 all nve
+# time step 3.33e-12 ps = 1.0 fm/c
+timestep	1.665e-12
+run		50000
+write_restart	restart.equilConf0
+
+# Minimization
+min_style       hftn
+minimize        1e8 1.0e8 1000 10000
+
+#unfix           1
+run             10000
+
+# Minimization
+min_style       hftn
+minimize        1e8 1.0e8 1000 10000
+
+run             25000
+
+write_restart   restart.equilConf1
+
+unfix           1
+# fix nve integration
+fix             1 all nvt temp 3.0e10 1.1604e10 $(100.0*dt)
+run             50000
+write_restart   restart.equilConf2
+
+unfix           1
+fix             1 all nve
+
+compute         RDF11 all rdf 100 1 1
+fix             2 all ave/time 5 10 1000 c_RDF11[*] file rdf11.dat mode vector
+
+compute         RDF12 all rdf 100 1 2
+fix             3 all ave/time 5 10 1000 c_RDF12[*] file rdf12.dat mode vector
+
+compute         RDF22 all rdf 100 2 2
+fix             4 all ave/time 5 10 1000 c_RDF22[*] file rdf22.dat mode vector
+
+dump            5 all custom 1000 dump.pos id type x y z
+run             25000
+write_restart   restart.equilConf3
+
+
+
